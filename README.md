@@ -4,7 +4,7 @@ Página web estática para practicar dicción, expresión oral y pronunciación 
 
 ## Funciones
 
-- Ejercicios de trabalenguas, vocales, consonantes, lectura expresiva y respiración.
+- 125 textos de práctica: trabalenguas, vocales, consonantes, lectura expresiva y respiración.
 - Temporizador configurable para sesiones cortas.
 - Grabación local de voz desde el navegador.
 - Evaluación básica por reconocimiento de voz cuando el navegador lo soporta, especialmente Chrome o Edge.
