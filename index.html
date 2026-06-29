@@ -1,0 +1,203 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta
+      name="description"
+      content="Entrenador web de dicción en español con ejercicios de pronunciación, ritmo, respiración y lectura expresiva."
+    />
+    <title>Diccion | Entrenador de dicción en español</title>
+    <link
+      rel="icon"
+      href='data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><rect width="64" height="64" rx="12" fill="%232d8a5f"/><path d="M14 34c9-14 27 14 36 0" fill="none" stroke="white" stroke-width="6" stroke-linecap="round"/><path d="M18 44h28" stroke="%23e6bd59" stroke-width="6" stroke-linecap="round"/></svg>'
+    />
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <main class="app-shell">
+      <section class="hero" aria-labelledby="page-title">
+        <div class="hero__content">
+          <p class="eyebrow">Entrenamiento de voz en español</p>
+          <h1 id="page-title">Diccion</h1>
+          <p class="hero__lead">
+            Practica articulación, ritmo y expresión con rutinas breves. Lee en voz
+            alta, graba tu intento y compara la claridad de tu pronunciación.
+          </p>
+          <div class="hero__actions">
+            <button class="button button--primary" id="jumpToPractice" type="button">
+              Practicar ahora
+            </button>
+            <button class="button" id="quickRoutine" type="button">Rutina de 3 min</button>
+          </div>
+        </div>
+
+        <figure class="hero__visual">
+          <img
+            src="./assets/diccion-voice-map.png"
+            alt="Mapa visual de ondas de voz y puntos de articulación"
+            width="900"
+            height="720"
+          />
+        </figure>
+      </section>
+
+      <section class="stats" aria-label="Resumen de la sesión">
+        <div>
+          <span>Tiempo</span>
+          <strong id="sessionMinutes">0 min</strong>
+        </div>
+        <div>
+          <span>Prácticas</span>
+          <strong id="sessionCount">0</strong>
+        </div>
+        <div>
+          <span>Ritmo</span>
+          <strong id="paceLabel">100 ppm</strong>
+        </div>
+        <div>
+          <span>Objetivo</span>
+          <strong id="focusLabel">claridad</strong>
+        </div>
+      </section>
+
+      <section class="workspace" id="practice" aria-label="Área de práctica">
+        <aside class="controls" aria-label="Controles">
+          <div class="field">
+            <label for="exerciseType">Ejercicio</label>
+            <select id="exerciseType">
+              <option value="trabalenguas">Trabalenguas</option>
+              <option value="vocales">Vocales abiertas</option>
+              <option value="consonantes">Consonantes difíciles</option>
+              <option value="lectura">Lectura expresiva</option>
+              <option value="respiracion">Respiración y pausa</option>
+            </select>
+          </div>
+
+          <div class="field">
+            <label for="duration">Duración</label>
+            <select id="duration">
+              <option value="60">1 minuto</option>
+              <option value="180" selected>3 minutos</option>
+              <option value="300">5 minutos</option>
+              <option value="600">10 minutos</option>
+            </select>
+          </div>
+
+          <div class="field">
+            <label for="speed">Ritmo de lectura</label>
+            <input id="speed" type="range" min="70" max="150" value="100" step="5" />
+            <div class="range-row">
+              <span>lento</span>
+              <output id="speedOutput" for="speed">100 ppm</output>
+              <span>ágil</span>
+            </div>
+          </div>
+
+          <div class="button-stack">
+            <button class="button button--primary" id="newExercise" type="button">
+              Nuevo texto
+            </button>
+            <button class="button" id="startTimer" type="button">Iniciar</button>
+            <button class="button button--quiet" id="resetTimer" type="button">
+              Reiniciar
+            </button>
+          </div>
+        </aside>
+
+        <section class="practice-card" aria-live="polite">
+          <header class="practice-card__header">
+            <div>
+              <p class="eyebrow">Texto de práctica</p>
+              <h2 id="exerciseTitle">Precisión con trabalenguas</h2>
+            </div>
+            <div class="timer" aria-label="Temporizador">
+              <span id="timerText">03:00</span>
+            </div>
+          </header>
+
+          <article class="exercise-text" id="exerciseText" tabindex="0"></article>
+
+          <div class="coach-grid">
+            <div>
+              <h3>Enfoque</h3>
+              <p id="focusText"></p>
+            </div>
+            <div>
+              <h3>Preparación</h3>
+              <p id="warmupText"></p>
+            </div>
+          </div>
+
+          <div class="recorder" aria-label="Grabación local">
+            <button class="button button--record" id="recordButton" type="button">
+              Grabar voz
+            </button>
+            <audio id="playback" controls></audio>
+            <p class="status" id="recordingStatus">La grabación se queda en tu navegador.</p>
+          </div>
+        </section>
+
+        <section class="feedback" aria-labelledby="feedback-title">
+          <div class="feedback__top">
+            <div>
+              <p class="eyebrow">Retroalimentación</p>
+              <h2 id="feedback-title">Claridad al leer</h2>
+            </div>
+            <button class="button" id="listenButton" type="button">Evaluar con voz</button>
+          </div>
+
+          <div class="score-ring" aria-label="Puntaje estimado de coincidencia">
+            <span id="scoreValue">--</span>
+            <small>coincidencia</small>
+          </div>
+
+          <p class="status" id="speechSupport"></p>
+          <p class="transcript" id="transcript"></p>
+
+          <ul class="checklist" aria-label="Autoevaluación">
+            <li>
+              <input id="check1" type="checkbox" />
+              <label for="check1">Abrí la boca en vocales largas.</label>
+            </li>
+            <li>
+              <input id="check2" type="checkbox" />
+              <label for="check2">Pronuncié finales de palabra con claridad.</label>
+            </li>
+            <li>
+              <input id="check3" type="checkbox" />
+              <label for="check3">Hice pausas antes de ideas nuevas.</label>
+            </li>
+          </ul>
+        </section>
+      </section>
+
+      <section class="routine" aria-label="Rutina recomendada">
+        <div class="section-heading">
+          <p class="eyebrow">Método</p>
+          <h2>Rutina de 10 minutos</h2>
+        </div>
+        <div class="routine-grid">
+          <div>
+            <strong>1. Respirar</strong>
+            <span>Inhala 4 tiempos, pausa 2, exhala 6. Repite cinco veces.</span>
+          </div>
+          <div>
+            <strong>2. Articular</strong>
+            <span>Exagera vocales y consonantes, luego reduce hasta sonar natural.</span>
+          </div>
+          <div>
+            <strong>3. Leer</strong>
+            <span>Lee una vez lento, una conversacional y una con intención.</span>
+          </div>
+          <div>
+            <strong>4. Comparar</strong>
+            <span>Escucha tu grabación y repite la frase menos clara.</span>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <script src="./app.js"></script>
+  </body>
+</html>
