@@ -66,7 +66,9 @@ const state = {
   sessionSeconds: Number(localStorage.getItem("diccionSessionSeconds") || 0),
   sessionCount: Number(localStorage.getItem("diccionSessionCount") || 0),
   recognition: null,
+  isListening: false,
   recorder: null,
+  stream: null,
   chunks: [],
 };
 
@@ -204,29 +206,102 @@ async function toggleRecording() {
     return;
   }
 
+  if (!window.isSecureContext) {
+    elements.recordingStatus.textContent =
+      "El micrófono solo funciona en una página segura. Abre la versión HTTPS publicada.";
+    return;
+  }
+
+  if (!navigator.mediaDevices?.getUserMedia) {
+    elements.recordingStatus.textContent =
+      "Este navegador no permite grabar desde esta página. Prueba con Chrome, Edge o Safari actualizado.";
+    return;
+  }
+
+  if (!window.MediaRecorder) {
+    elements.recordingStatus.textContent =
+      "Tu navegador permite micrófono, pero no ofrece grabación local. Usa un navegador actualizado.";
+    return;
+  }
+
   try {
-    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    elements.recordingStatus.textContent = "Solicitando permiso del micrófono...";
+    const stream = await navigator.mediaDevices.getUserMedia({
+      audio: {
+        echoCancellation: true,
+        noiseSuppression: true,
+        autoGainControl: true,
+      },
+    });
+    const mimeType = getSupportedAudioType();
+    const recorderOptions = mimeType ? { mimeType } : undefined;
+
     state.chunks = [];
-    state.recorder = new MediaRecorder(stream);
+    state.stream = stream;
+    state.recorder = new MediaRecorder(stream, recorderOptions);
     state.recorder.addEventListener("dataavailable", (event) => {
       if (event.data.size > 0) state.chunks.push(event.data);
     });
     state.recorder.addEventListener("stop", () => {
-      const blob = new Blob(state.chunks, { type: "audio/webm" });
+      const type = state.recorder.mimeType || mimeType || "audio/mp4";
+      const blob = new Blob(state.chunks, { type });
       elements.playback.src = URL.createObjectURL(blob);
-      stream.getTracks().forEach((track) => track.stop());
+      state.stream?.getTracks().forEach((track) => track.stop());
+      state.stream = null;
       elements.recordButton.textContent = "Grabar voz";
       elements.recordButton.classList.remove("is-active");
-      elements.recordingStatus.textContent = "Grabación lista. Escúchala y repite la frase menos clara.";
+      elements.recordingStatus.textContent =
+        "Grabación lista. Presiona reproducir y repite la frase menos clara.";
+    });
+    state.recorder.addEventListener("error", () => {
+      state.stream?.getTracks().forEach((track) => track.stop());
+      state.stream = null;
+      elements.recordButton.textContent = "Grabar voz";
+      elements.recordButton.classList.remove("is-active");
+      elements.recordingStatus.textContent =
+        "La grabación se interrumpió. Revisa permisos del micrófono y vuelve a intentar.";
     });
     state.recorder.start();
     elements.recordButton.textContent = "Detener";
     elements.recordButton.classList.add("is-active");
     elements.recordingStatus.textContent = "Grabando...";
   } catch (error) {
-    elements.recordingStatus.textContent =
-      "No se pudo acceder al micrófono. Revisa los permisos del navegador.";
+    state.stream?.getTracks().forEach((track) => track.stop());
+    state.stream = null;
+    elements.recordButton.textContent = "Grabar voz";
+    elements.recordButton.classList.remove("is-active");
+    elements.recordingStatus.textContent = getMicrophoneErrorMessage(error);
   }
+}
+
+function getSupportedAudioType() {
+  if (typeof MediaRecorder.isTypeSupported !== "function") return "";
+
+  const candidates = [
+    "audio/webm;codecs=opus",
+    "audio/webm",
+    "audio/mp4;codecs=mp4a.40.2",
+    "audio/mp4",
+    "audio/ogg;codecs=opus",
+  ];
+
+  return candidates.find((type) => MediaRecorder.isTypeSupported(type)) || "";
+}
+
+function getMicrophoneErrorMessage(error) {
+  const messages = {
+    NotAllowedError:
+      "El navegador bloqueó el micrófono. Permite el acceso en la barra de direcciones y vuelve a intentar.",
+    SecurityError:
+      "El micrófono está bloqueado por seguridad. Abre la página publicada con HTTPS.",
+    NotFoundError: "No se encontró un micrófono disponible en este dispositivo.",
+    NotReadableError:
+      "El micrófono está ocupado por otra aplicación. Cierra la otra app y vuelve a intentar.",
+    OverconstrainedError:
+      "El micrófono no cumple la configuración solicitada. Prueba con otro dispositivo o navegador.",
+  };
+
+  return messages[error?.name] || "No se pudo acceder al micrófono. Revisa permisos y vuelve a intentar.";
 }
 
 function similarityScore(expected, actual) {
@@ -244,20 +319,24 @@ function setupSpeechRecognition() {
 
   if (!SpeechRecognition) {
     elements.speechSupport.textContent =
-      "Tu navegador no ofrece evaluación automática de voz. Puedes usar la grabadora y la lista de autoevaluación.";
+      "Tu navegador no ofrece escucha automática. Usa Chrome o Edge para evaluar con voz, o usa la grabadora.";
     elements.listenButton.disabled = true;
+    elements.listenButton.textContent = "Escucha no disponible";
     return;
   }
 
   const recognition = new SpeechRecognition();
-  recognition.lang = "es-ES";
+  recognition.lang = navigator.language?.startsWith("es") ? navigator.language : "es-CO";
   recognition.interimResults = false;
   recognition.maxAlternatives = 1;
+  recognition.continuous = false;
 
   recognition.addEventListener("start", () => {
+    state.isListening = true;
     elements.listenButton.textContent = "Escuchando...";
     elements.listenButton.classList.add("is-active");
-    elements.speechSupport.textContent = "Lee el texto completo con claridad.";
+    elements.speechSupport.textContent =
+      "Te estoy escuchando. Lee el texto completo y espera el resultado.";
   });
 
   recognition.addEventListener("result", (event) => {
@@ -269,18 +348,54 @@ function setupSpeechRecognition() {
   });
 
   recognition.addEventListener("end", () => {
+    state.isListening = false;
     elements.listenButton.textContent = "Evaluar con voz";
     elements.listenButton.classList.remove("is-active");
   });
 
-  recognition.addEventListener("error", () => {
-    elements.speechSupport.textContent =
-      "No se pudo completar la evaluación. Prueba de nuevo en un lugar con menos ruido.";
+  recognition.addEventListener("error", (event) => {
+    state.isListening = false;
+    elements.listenButton.textContent = "Evaluar con voz";
+    elements.listenButton.classList.remove("is-active");
+    elements.speechSupport.textContent = getSpeechErrorMessage(event.error);
   });
 
   state.recognition = recognition;
   elements.speechSupport.textContent =
-    "La evaluación compara palabras reconocidas por el navegador; úsala como guía, no como diagnóstico.";
+    "Presiona Evaluar con voz, permite el micrófono y lee el texto. La evaluación depende del navegador.";
+}
+
+function startSpeechRecognition() {
+  if (!state.recognition) return;
+
+  if (state.isListening) {
+    state.recognition.stop();
+    return;
+  }
+
+  try {
+    elements.transcript.textContent = "";
+    state.recognition.start();
+  } catch (error) {
+    elements.speechSupport.textContent =
+      "La escucha ya estaba activa o el navegador la bloqueó. Espera unos segundos y vuelve a intentar.";
+  }
+}
+
+function getSpeechErrorMessage(error) {
+  const messages = {
+    "not-allowed":
+      "El navegador bloqueó el micrófono. Permite el acceso y vuelve a presionar Evaluar con voz.",
+    "service-not-allowed":
+      "El servicio de reconocimiento de voz está bloqueado en este navegador. Prueba con Chrome o Edge.",
+    "no-speech": "No detecté voz. Acércate al micrófono y lee el texto con claridad.",
+    audio: "No pude recibir audio del micrófono. Revisa que no esté ocupado por otra app.",
+    network:
+      "El reconocimiento de voz necesita conexión del navegador. Revisa internet y vuelve a intentar.",
+    aborted: "La escucha se canceló. Presiona Evaluar con voz para intentarlo de nuevo.",
+  };
+
+  return messages[error] || "No se pudo completar la escucha. Prueba de nuevo en un lugar con menos ruido.";
 }
 
 function applySpeed() {
@@ -299,7 +414,7 @@ elements.newExercise.addEventListener("click", pickExercise);
 elements.startTimer.addEventListener("click", startTimer);
 elements.resetTimer.addEventListener("click", resetTimer);
 elements.recordButton.addEventListener("click", toggleRecording);
-elements.listenButton.addEventListener("click", () => state.recognition?.start());
+elements.listenButton.addEventListener("click", startSpeechRecognition);
 elements.jumpToPractice.addEventListener("click", () => {
   document.querySelector("#practice").scrollIntoView({ behavior: "smooth", block: "start" });
   elements.exerciseText.focus({ preventScroll: true });

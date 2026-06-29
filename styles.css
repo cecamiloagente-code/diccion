@@ -116,6 +116,16 @@ h1 {
   box-shadow: 0 10px 24px rgba(35, 47, 38, 0.1);
 }
 
+.button:disabled {
+  cursor: not-allowed;
+  opacity: 0.58;
+}
+
+.button:disabled:hover {
+  transform: none;
+  box-shadow: none;
+}
+
 .button--primary {
   border-color: transparent;
   color: #ffffff;
